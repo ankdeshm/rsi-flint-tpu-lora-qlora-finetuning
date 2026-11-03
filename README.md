@@ -48,6 +48,64 @@ Long-context recipes enable `FusedLossLinearWrapper` + `PallasCrossEntropyLoss` 
 | **`flint_40b_lora_bf16_64k`** *(`BF16` LoRA (`r=16`))* | `64K` (`65,536`) (`1,048,576`) | `12.130 s` | **`5,402.5`** (`86,440.4` tok/s) | `6.931 GiB` | `44.175 GiB` | `29.61 / 43.40 GiB` | `2.1172 -> 0.9539` |
 | **`flint_40b_qlora_int8_64k`** *(`INT8` QLoRA (`r=16`))* | `64K` (`65,536`) (`1,048,576`) | `12.370 s` | **`5,297.8`** (`84,765.0` tok/s) | `4.727 GiB` | `41.820 GiB` | `27.26 / 41.06 GiB` | `2.1144 -> 0.9535` |
 
+---
+
+## 3. Compiled Multi-LoRA & QLoRA-Style Serving (`SGLang-TorchTPU` on TPU `v7x` & `v5p`)
+
+### 3.1 TPU `v7x` Single-Host (`4` Chips / `8` TensorCores, `TP=2 × DP=4`) Compiled Multi-LoRA Serving
+
+Artifacts: [`serving/results/v7x_multilora_summary.json`](./serving/results/v7x_multilora_summary.json) · [`serving/scripts/patch_sglang_tpu_lora.py`](./serving/scripts/patch_sglang_tpu_lora.py) · [`serving/scripts/bench_flint_multilora_sglang.py`](./serving/scripts/bench_flint_multilora_sglang.py)
+
+#### `E1_sglang_fp8_multilora` (`fp8_block128` Base + `FP8` KV) — Dynamic `/unload_lora_adapter` + `/load_lora_adapter`: **`13.3 ms` unload / `24.8 ms` reload** (`0` errors)
+
+| Adapter Schedule | `1K` `c=1` (`TPOT p50`) | `1K` Peak Host (`4`-Host Equiv) | `4K` Peak Host | `64K` Peak Host | Failed |
+|---|---:|---:|---:|---:|---:|
+| `0` LoRAs *(Base Only)* | `95.5` tok/s (`10.47 ms`) | **`3,984.6`** (`15,938.5` tok/s) | `3,487.7` tok/s | `434.4` tok/s | `0` |
+| `1` LoRA *(`lora_bf16`)* | `88.2` tok/s (`11.34 ms`) | **`4,133.8`** (`16,535.4` tok/s) | `3,590.7` tok/s | `436.9` tok/s | `0` |
+| `2` Concurrent *(`BF16 + INT8 QLoRA`)* | `90.9` tok/s (`11.00 ms`) | **`4,322.8`** (`17,291.4` tok/s) | — | — | `0` |
+| `4` Concurrent *(`BF16 + INT8 + NF4 + Attn`)* | `91.3` tok/s (`10.95 ms`) | **`3,634.9`** (`14,539.8` tok/s) | `3,001.4` tok/s | `365.2` tok/s | `0` |
+| Mixed *(`Base + 3 LoRAs`)* | `92.3` tok/s (`10.84 ms`) | **`4,352.3`** (`17,409.3` tok/s) | — | — | `0` |
+
+#### `E2_sglang_bf16_multilora` (`bfloat16` Base + `FP8` KV) — Dynamic `/unload_lora_adapter` + `/load_lora_adapter`: **`12.4 ms` unload / `24.4 ms` reload** (`0` errors)
+
+| Adapter Schedule | `1K` `c=1` (`TPOT p50`) | `1K` Peak Host (`4`-Host Equiv) | `4K` Peak Host | `64K` Peak Host | Failed |
+|---|---:|---:|---:|---:|---:|
+| `0` LoRAs *(Base Only)* | `87.7` tok/s (`11.40 ms`) | **`4,120.3`** (`16,481.2` tok/s) | `3,603.9` tok/s | `431.3` tok/s | `0` |
+| `1` LoRA *(`lora_bf16`)* | `87.5` tok/s (`11.43 ms`) | **`4,293.8`** (`17,175.2` tok/s) | `3,573.5` tok/s | `440.0` tok/s | `0` |
+| `2` Concurrent *(`BF16 + INT8 QLoRA`)* | `87.7` tok/s (`11.40 ms`) | **`4,175.2`** (`16,700.7` tok/s) | — | — | `0` |
+| `4` Concurrent *(`BF16 + INT8 + NF4 + Attn`)* | `90.6` tok/s (`11.03 ms`) | **`3,633.6`** (`14,534.2` tok/s) | `3,055.4` tok/s | `365.4` tok/s | `0` |
+| Mixed *(`Base + 3 LoRAs`)* | `91.2` tok/s (`10.96 ms`) | **`4,162.7`** (`16,650.9` tok/s) | — | — | `0` |
+
+### 3.2 TPU `v5p` Single-Host (`4` Chips, `TP=4 × DP=1`, `--lora-backend torch_native`) Compiled Multi-LoRA Serving (`16`-Chip Slice Equiv)
+
+Artifacts: [`serving/results/v5p_multilora_summary.json`](./serving/results/v5p_multilora_summary.json) · [`serving/scripts/run_v5p_wave_b_worker.py`](./serving/scripts/run_v5p_wave_b_worker.py) · [`serving/k8s/flint-multilora-sglang-v5p.yaml`](./serving/k8s/flint-multilora-sglang-v5p.yaml)
+
+#### `v5p_fp8_block128_multilora` (`fp8_block128` Base + `FP8` KV) — Dynamic hot-swap: **`22 ms` unload / `26 ms` reload**
+
+| Adapter Schedule | `1K` `c=1` (`TPOT p50`) | `1K` Peak Host (`4`-Host Equiv) | `4K` Peak Host | `64K` Peak Host | Failed |
+|---|---:|---:|---:|---:|---:|
+| `0` LoRAs *(Base Only)* | `66.2` tok/s (`15.12 ms`) | **`604.5`** (`2,418.1` tok/s) | `728.7` tok/s | `244.4` tok/s | `0` |
+| `1` LoRA *(`lora_bf16`)* | `69.1` tok/s (`14.48 ms`) | **`748.0`** (`2,991.8` tok/s) | `952.0` tok/s | `263.4` tok/s | `0` |
+| `2` Concurrent *(`BF16 + INT8 QLoRA`)* | `69.0` tok/s (`14.49 ms`) | **`803.7`** (`3,214.8` tok/s) | — | — | `0` |
+| `4` Concurrent *(`BF16 + INT8 + NF4 + Attn`)* | `67.3` tok/s (`14.87 ms`) | **`741.5`** (`2,966.2` tok/s) | `860.5` tok/s | `130.6` tok/s | `0` |
+| Mixed *(`Base + 3 LoRAs`)* | `70.3` tok/s (`14.22 ms`) | **`679.7`** (`2,718.6` tok/s) | — | — | `0` |
+
+#### `v5p_bfloat16_multilora` (`bfloat16` Base + `FP8` KV) — Dynamic hot-swap: **`20 ms` unload / `28 ms` reload**
+
+| Adapter Schedule | `1K` `c=1` (`TPOT p50`) | `1K` Peak Host (`4`-Host Equiv) | `4K` Peak Host | `64K` Peak Host | Failed |
+|---|---:|---:|---:|---:|---:|
+| `0` LoRAs *(Base Only)* | `69.6` tok/s (`14.37 ms`) | **`1,529.1`** (`6,116.4` tok/s) | `1,620.0` tok/s | `385.3` tok/s | `0` |
+| `1` LoRA *(`lora_bf16`)* | `67.0` tok/s (`14.92 ms`) | **`1,540.9`** (`6,163.6` tok/s) | `1,647.6` tok/s | `393.1` tok/s | `0` |
+| `2` Concurrent *(`BF16 + INT8 QLoRA`)* | `68.3` tok/s (`14.63 ms`) | **`1,655.9`** (`6,623.6` tok/s) | — | — | `0` |
+| `4` Concurrent *(`BF16 + INT8 + NF4 + Attn`)* | `68.7` tok/s (`14.55 ms`) | **`1,632.1`** (`6,528.5` tok/s) | `1,580.2` tok/s | `231.8` tok/s | `0` |
+| Mixed *(`Base + 3 LoRAs`)* | `68.7` tok/s (`14.55 ms`) | **`1,577.8`** (`6,311.4` tok/s) | — | — | `0` |
+
+### 3.3 Empirical Engine Comparison: `SGLang-TorchTPU` vs `vLLM-TorchTPU` on `RecursiveSI/flint`
+
+- **Stock Upstream `vllm-torchtpu` Probe ([`serving/results/vllm_flint_comparison.json`](./serving/results/vllm_flint_comparison.json)):** `--model-impl auto` -> `exited`, `--model-impl transformers` -> `exited` (`FlintForCausalLM` / `model_type='flint'` is unregistered in `vLLM`'s `ModelRegistry`, `flint_for_causal_lm_registered=False`, and the checkpoint ships `flint_sglang` without a Hugging Face `auto_map`).
+- **Plugin-Enabled `vllm-torchtpu` Multi-LoRA Constraint:** Even after registering `FlintConfig` + `FlintForCausalLM` via [`install_flint_vllm.py`](./serving/scripts/install_flint_vllm.py), `VllmConfig` explicitly rejects `--enable-lora` on TPU for both `TP=2 × DP=4 × EP=8` and `TP=1 × DP=8 × EP=8` with `ValidationError: LoRA on TPU does not support tensor_parallel_size > 1; data_parallel_size > 1; MoE models`. By contrast, [`patch_sglang_tpu_lora.py`](./serving/scripts/patch_sglang_tpu_lora.py) enables static-shape XLA-compiled `TorchNativeLoRABackend` Multi-LoRA across `TP=2 × DP=4` (`v7x`) and `TP=4 × DP=1` (`v5p`) on `RecursiveSI/flint`'s `256`-expert MoE with `0` errors on both `BF16` and `Block-FP8` `[128, 128]` base weights.
+
+Full single-host & multi-slice serving optimization matrices (`Axes A–E`, `128K` RadixCache, `swa_ratio`, `TP × DP × EP`) are published in the companion serving repository: [`ankdeshm/rsi-flint-torchtpu-tpu-serving`](https://github.com/ankdeshm/rsi-flint-torchtpu-tpu-serving) (`docs/SINGLEHOST_AND_MULTILORA_OPTIMIZATION.md` and `multilora_singlehost_opt/`).
 
 ---
 

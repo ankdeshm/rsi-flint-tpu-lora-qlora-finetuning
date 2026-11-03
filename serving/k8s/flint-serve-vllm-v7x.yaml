@@ -40,17 +40,30 @@ spec:
         args:
         - |
           set -euo pipefail
-          python3 -u /models/benchmark-results/flint_v7x_rqkr_opt/scripts/bench_flint_vllm_rqkr.py
+          ulimit -c 0 || true
+          mkdir -p /workspace/flint_vllm_e3
+          cp /scripts/bench_flint_vllm_rqkr.py /workspace/flint_vllm_e3/bench_flint_vllm_rqkr.py
+          cp /models/benchmark-results/flint_v7x_rqkr_opt/scripts/install_flint_vllm.py /workspace/flint_vllm_e3/install_flint_vllm.py
+          cp /scripts/bench_flint_vllm_rqkr.py /models/benchmark-results/flint_v7x_rqkr_opt/scripts/bench_flint_vllm_rqkr.py || true
+          python3 -u /workspace/flint_vllm_e3/bench_flint_vllm_rqkr.py
         env:
+        - {name: PYTHONUNBUFFERED, value: "1"}
         - {name: PJRT_DEVICE, value: "TPU"}
+        - {name: GCS_ARTIFACTS_BUCKET, value: "your-tpu-artifacts-bucket-000000000000"}
         resources:
-          requests: {google.com/tpu: "4", cpu: "32", memory: 200Gi}
+          requests: {google.com/tpu: "4", cpu: "32", memory: 240Gi}
           limits: {google.com/tpu: "4"}
         volumeMounts:
         - {name: models-gcs, mountPath: /models}
         - {name: dshm, mountPath: /dev/shm}
+        - {name: ramtmp, mountPath: /tmp}
+        - {name: e3-scripts, mountPath: /scripts}
       volumes:
       - name: models-gcs
         persistentVolumeClaim: {claimName: tpu-models-gcs-pvc}
       - name: dshm
-        emptyDir: {medium: Memory, sizeLimit: 256Gi}
+        emptyDir: {medium: Memory, sizeLimit: 350Gi}
+      - name: ramtmp
+        emptyDir: {medium: Memory, sizeLimit: 120Gi}
+      - name: e3-scripts
+        configMap: {name: flint-vllm-rqkr-cm}

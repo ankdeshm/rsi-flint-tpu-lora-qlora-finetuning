@@ -1,0 +1,175 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: flint-v5p-mlora-fp8
+  namespace: default
+  labels:
+    app: flint-v5p-mlora-fp8
+spec:
+  completions: 1
+  parallelism: 1
+  backoffLimit: 1
+  template:
+    metadata:
+      annotations:
+        cluster-autoscaler.kubernetes.io/safe-to-evict: "false"
+        gke-gcsfuse/volumes: "true"
+        gke-gcsfuse/cpu-limit: "0"
+        gke-gcsfuse/memory-limit: "0"
+        gke-gcsfuse/ephemeral-storage-limit: "0"
+      labels:
+        app: flint-v5p-mlora-fp8
+    spec:
+      restartPolicy: OnFailure
+      nodeSelector:
+        cloud.google.com/gke-nodepool: tpu-v5p-16-pool
+        cloud.google.com/gke-tpu-accelerator: tpu-v5p-slice
+        cloud.google.com/gke-tpu-topology: 2x2x4
+      tolerations:
+      - key: google.com/tpu
+        operator: Exists
+        effect: NoSchedule
+      - key: cloud.google.com/gke-spot
+        operator: Exists
+        effect: NoSchedule
+      - key: cloud.google.com/gke-queued
+        operator: Exists
+        effect: NoSchedule
+      containers:
+      - name: sglang-v5p
+        image: us-central1-docker.pkg.dev/your-gcp-project-id/vllm/sglang-torchtpu-diffusion:v0.2.0
+        imagePullPolicy: IfNotPresent
+        securityContext:
+          privileged: true
+        env:
+        - name: PJRT_DEVICE
+          value: TPU
+        - name: PYTHONUNBUFFERED
+          value: "1"
+        - name: JOB_COMPLETION_INDEX
+          value: "0"
+        command: ["bash", "-lc"]
+        args:
+        - |
+          set -euo pipefail
+          ulimit -c 0 || true
+          mkdir -p /workspace/logs /dev/shm/torch_tpu_cache/default /dev/shm/jax_compile_cache
+          echo "[v5p-mlora-fp8] Host=$(hostname) Bootstrapping..."
+          if [ -f /models/models/RecursiveSI/flint/sglang/flint_sglang-0.1.4-py3-none-any.whl ]; then
+            pip install --no-deps /models/models/RecursiveSI/flint/sglang/flint_sglang-0.1.4-py3-none-any.whl
+          fi
+          cp -f /models/flint-v5p-wave-b/* /workspace/
+          python3 /workspace/patch_flint_sglang_tpu.py
+          gcc -shared -fPIC -O2 -o /workspace/metadata_hook.so /workspace/metadata_hook.c -ldl
+          grep -q "127.0.0.1 metadata.google.internal" /etc/hosts || echo "127.0.0.1 metadata.google.internal" >> /etc/hosts
+          nohup python3 /workspace/v5p_mock_metadata.py --port 18080 >/workspace/logs/mock_metadata.log 2>&1 &
+          sleep 2
+          python3 -u /workspace/run_v5p_wave_b_worker.py > /workspace/logs/wave_b_worker.log 2>&1
+        resources:
+          requests:
+            cpu: "32"
+            memory: 240Gi
+            google.com/tpu: "4"
+          limits:
+            google.com/tpu: "4"
+        volumeMounts:
+        - name: models-gcs
+          mountPath: /models
+        - name: dshm
+          mountPath: /dev/shm
+      volumes:
+      - name: models-gcs
+        persistentVolumeClaim:
+          claimName: tpu-models-gcs-pvc
+      - name: dshm
+        emptyDir:
+          medium: Memory
+          sizeLimit: 320Gi
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: flint-v5p-mlora-bf16
+  namespace: default
+  labels:
+    app: flint-v5p-mlora-bf16
+spec:
+  completions: 1
+  parallelism: 1
+  backoffLimit: 1
+  template:
+    metadata:
+      annotations:
+        cluster-autoscaler.kubernetes.io/safe-to-evict: "false"
+        gke-gcsfuse/volumes: "true"
+        gke-gcsfuse/cpu-limit: "0"
+        gke-gcsfuse/memory-limit: "0"
+        gke-gcsfuse/ephemeral-storage-limit: "0"
+      labels:
+        app: flint-v5p-mlora-bf16
+    spec:
+      restartPolicy: OnFailure
+      nodeSelector:
+        cloud.google.com/gke-nodepool: tpu-v5p-16-pool
+        cloud.google.com/gke-tpu-accelerator: tpu-v5p-slice
+        cloud.google.com/gke-tpu-topology: 2x2x4
+      tolerations:
+      - key: google.com/tpu
+        operator: Exists
+        effect: NoSchedule
+      - key: cloud.google.com/gke-spot
+        operator: Exists
+        effect: NoSchedule
+      - key: cloud.google.com/gke-queued
+        operator: Exists
+        effect: NoSchedule
+      containers:
+      - name: sglang-v5p
+        image: us-central1-docker.pkg.dev/your-gcp-project-id/vllm/sglang-torchtpu-diffusion:v0.2.0
+        imagePullPolicy: IfNotPresent
+        securityContext:
+          privileged: true
+        env:
+        - name: PJRT_DEVICE
+          value: TPU
+        - name: PYTHONUNBUFFERED
+          value: "1"
+        - name: JOB_COMPLETION_INDEX
+          value: "1"
+        command: ["bash", "-lc"]
+        args:
+        - |
+          set -euo pipefail
+          ulimit -c 0 || true
+          mkdir -p /workspace/logs /dev/shm/torch_tpu_cache/default /dev/shm/jax_compile_cache
+          echo "[v5p-mlora-bf16] Host=$(hostname) Bootstrapping..."
+          if [ -f /models/models/RecursiveSI/flint/sglang/flint_sglang-0.1.4-py3-none-any.whl ]; then
+            pip install --no-deps /models/models/RecursiveSI/flint/sglang/flint_sglang-0.1.4-py3-none-any.whl
+          fi
+          cp -f /models/flint-v5p-wave-b/* /workspace/
+          python3 /workspace/patch_flint_sglang_tpu.py
+          gcc -shared -fPIC -O2 -o /workspace/metadata_hook.so /workspace/metadata_hook.c -ldl
+          grep -q "127.0.0.1 metadata.google.internal" /etc/hosts || echo "127.0.0.1 metadata.google.internal" >> /etc/hosts
+          nohup python3 /workspace/v5p_mock_metadata.py --port 18080 >/workspace/logs/mock_metadata.log 2>&1 &
+          sleep 2
+          python3 -u /workspace/run_v5p_wave_b_worker.py > /workspace/logs/wave_b_worker.log 2>&1
+        resources:
+          requests:
+            cpu: "32"
+            memory: 240Gi
+            google.com/tpu: "4"
+          limits:
+            google.com/tpu: "4"
+        volumeMounts:
+        - name: models-gcs
+          mountPath: /models
+        - name: dshm
+          mountPath: /dev/shm
+      volumes:
+      - name: models-gcs
+        persistentVolumeClaim:
+          claimName: tpu-models-gcs-pvc
+      - name: dshm
+        emptyDir:
+          medium: Memory
+          sizeLimit: 320Gi

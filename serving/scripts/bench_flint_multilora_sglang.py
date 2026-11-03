@@ -330,7 +330,7 @@ def launch_multilora_phase(
         "--kv-cache-dtype",
         "fp8_e4m3",
         "--context-length",
-        "32768",
+        "69632",
         "--mem-fraction-static",
         str(mem_fraction),
         "--chunked-prefill-size",
@@ -344,7 +344,7 @@ def launch_multilora_phase(
         "--swa-full-tokens-ratio",
         "0.10",
         "--wait-timeout",
-        "1800",
+        "2700",
         f"--extra-args={extra_args}",
     ]
     if disable_compile:
@@ -437,9 +437,11 @@ def main() -> None:
         q_probe = run_quality_probes("http://127.0.0.1:8000", model_path, adapter_names)
         points: list[dict[str, Any]] = []
         for sched_name, sched in schedules:
-            for isl, osl, concs in [(1024, 512, [1, 8, 16, 32, 64]), (1024, 1024, [1, 16, 64])]:
-                if sched_name not in ("1_lora_bf16", "4_loras_all_mixed") and osl == 1024:
-                    continue
+            shape_grid = [(1024, 512, [1, 8, 16, 32, 64])]
+            if sched_name in ("0_loras_base_only", "1_lora_bf16", "4_loras_all_mixed"):
+                shape_grid.append((4096, 512, [1, 16, 64]))
+                shape_grid.append((65536, 512, [1, 16]))
+            for isl, osl, concs in shape_grid:
                 for c in concs:
                     pt = asyncio.run(run_multilora_point("http://127.0.0.1:8000", model_path, sched, isl, osl, c))
                     pt["schedule_name"] = sched_name
