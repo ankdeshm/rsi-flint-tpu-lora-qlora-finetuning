@@ -1,0 +1,603 @@
+{
+  "title": "RecursiveSI/flint (39.81B total / 2.52B active MoE) LoRA & QLoRA Fine-Tuning on TPU v5p-16",
+  "hardware": {
+    "slice": "TPU v5p-16 (2x2x4, 4 hosts x 4 chips = 16 chips)",
+    "hbm_per_chip_gib": 95.0,
+    "bf16_peak_tflops_per_chip": 459.0
+  },
+  "dataset": {
+    "name": "yahma/alpaca-cleaned",
+    "seq_len": 4096,
+    "local_batch_size": 2,
+    "global_tokens_per_step": 131072
+  },
+  "runs": {
+    "flint_40b_lora_bf16": {
+      "log_file": "flint_40b_lora_bf16.node0.log",
+      "return_code": 0,
+      "total_steps_logged": 150,
+      "compile_step1_s": 23.21,
+      "compile_step2_s": 3.01,
+      "steady_min_step": 15,
+      "steady_num_steps": 136,
+      "steady_step_time_mean_s": 3.0274,
+      "steady_step_time_p50_s": 2.99,
+      "steady_step_time_min_s": 2.98,
+      "steady_tok_s_per_chip": 2714.8,
+      "steady_slice_tok_s_16chips": 43436.1,
+      "steady_tflops_per_chip": 51.37,
+      "steady_active_mfu_pct": 11.19,
+      "steady_active_hfu_pct": 14.92,
+      "pytorch_peak_mem_gib": 4.58,
+      "loss_initial": 2.13873,
+      "loss_final": 0.86375,
+      "loss_last10_mean": 0.86511,
+      "loss_curve_checkpoints": {
+        "step_1": 2.13873,
+        "step_5": 1.12208,
+        "step_10": 1.08754,
+        "step_25": 1.00362,
+        "step_50": 1.02626,
+        "step_75": 0.92488,
+        "step_100": 0.90719,
+        "step_120": 0.92931,
+        "step_150": 0.86375
+      },
+      "run_stats": {
+        "config": "flint_40b_lora_bf16",
+        "model": "RecursiveSI/flint",
+        "quant": "bf16",
+        "lora_rank": 16,
+        "lora_alpha": 32.0,
+        "lora_targets_tt": [
+          "wq",
+          "wkv",
+          "wo",
+          "w1",
+          "w2",
+          "w3"
+        ],
+        "world_size": 16,
+        "trainable_params": 21364736,
+        "total_params": 39806652192,
+        "hf_load": {
+          "loader": "direct_sharded_flint_safetensors",
+          "source_path": "/dev/shm/flint_hf",
+          "tensors_loaded": 779,
+          "bytes_read_this_rank": 4973160932,
+          "seconds": 4.41,
+          "skipped_keys": []
+        },
+        "checkpoint_load_s": 4.48,
+        "mem_after_load": {
+          "allocated_gib": 4.784,
+          "reserved_gib": 0.002,
+          "peak_allocated_gib": 4.784,
+          "peak_reserved_gib": 0.002
+        },
+        "train_wall_s": 474.46,
+        "mem_end": {
+          "allocated_gib": 9.522,
+          "reserved_gib": 4.582,
+          "peak_allocated_gib": 18.326,
+          "peak_reserved_gib": 4.582
+        },
+        "export": {
+          "full_lora_modules": 343,
+          "attn_lora_modules": 196,
+          "full_hf_target_modules": [
+            "down_proj",
+            "gate_proj",
+            "k_proj",
+            "o_proj",
+            "q_proj",
+            "up_proj",
+            "v_proj"
+          ],
+          "attn_hf_target_modules": [
+            "k_proj",
+            "o_proj",
+            "q_proj",
+            "v_proj"
+          ],
+          "full_bundle": {
+            "dir": "/models/flint-lora-ft/runs/flint_40b_lora_bf16_20261103T063448Z/peft_adapter",
+            "tensors": 686,
+            "bytes": 42729472
+          },
+          "attn_bundle": {
+            "dir": "/models/flint-lora-ft/runs/flint_40b_lora_bf16_20261103T063448Z/peft_adapter_attn",
+            "tensors": 392,
+            "bytes": 27295744
+          },
+          "canonical_serving_adapter": "/models/adapters/flint-40b-lora-r16",
+          "canonical_full_adapter": "/models/adapters/flint-40b-lora-r16-full",
+          "export_s": 5.91
+        }
+      },
+      "tpu_info_hbm": {
+        "hbm_file": "flint_40b_lora_bf16.hbm.log",
+        "tool": "tpu-info (libtpu runtime HBM usage, 4 chips on host 0, 2s interval)",
+        "num_timestamps": 304,
+        "resting_p10_gib": 10.34,
+        "median_gib": 12.61,
+        "p95_gib": 13.82,
+        "max_gib": 18.33
+      }
+    },
+    "flint_40b_qlora_int8": {
+      "log_file": "flint_40b_qlora_int8.node0.log",
+      "return_code": 0,
+      "total_steps_logged": 150,
+      "compile_step1_s": 28.31,
+      "compile_step2_s": 3.16,
+      "steady_min_step": 15,
+      "steady_num_steps": 136,
+      "steady_step_time_mean_s": 3.1783,
+      "steady_step_time_p50_s": 3.14,
+      "steady_step_time_min_s": 3.13,
+      "steady_tok_s_per_chip": 2586.2,
+      "steady_slice_tok_s_16chips": 41378.5,
+      "steady_tflops_per_chip": 48.94,
+      "steady_active_mfu_pct": 10.66,
+      "steady_active_hfu_pct": 14.21,
+      "pytorch_peak_mem_gib": 4.58,
+      "loss_initial": 2.134,
+      "loss_final": 0.86329,
+      "loss_last10_mean": 0.86435,
+      "loss_curve_checkpoints": {
+        "step_1": 2.134,
+        "step_5": 1.12344,
+        "step_10": 1.08829,
+        "step_25": 1.00358,
+        "step_50": 1.02675,
+        "step_75": 0.92481,
+        "step_100": 0.90728,
+        "step_120": 0.92892,
+        "step_150": 0.86329
+      },
+      "run_stats": {
+        "config": "flint_40b_qlora_int8",
+        "model": "RecursiveSI/flint",
+        "quant": "int8",
+        "lora_rank": 16,
+        "lora_alpha": 32.0,
+        "lora_targets_tt": [
+          "wq",
+          "wkv",
+          "wo",
+          "w1",
+          "w2",
+          "w3"
+        ],
+        "world_size": 16,
+        "trainable_params": 21364736,
+        "total_params": 39806652192,
+        "hf_load": {
+          "loader": "direct_sharded_flint_safetensors",
+          "source_path": "/dev/shm/flint_hf",
+          "tensors_loaded": 779,
+          "bytes_read_this_rank": 4973160932,
+          "seconds": 4.35,
+          "skipped_keys": []
+        },
+        "checkpoint_load_s": 4.41,
+        "mem_after_load": {
+          "allocated_gib": 4.784,
+          "reserved_gib": 0.002,
+          "peak_allocated_gib": 4.784,
+          "peak_reserved_gib": 0.002
+        },
+        "int8_linear_modules": 390,
+        "int8_expert_modules": 47,
+        "int8_linear_params": 1320681472,
+        "int8_expert_params": 37849399296,
+        "int8_total_quantized_params": 39170080768,
+        "int8_rel_fro_err_sample": 0.015095,
+        "int8_gather_dtype": "int8",
+        "quantize_s": 5.04,
+        "mem_after_quant": {
+          "allocated_gib": 2.579,
+          "reserved_gib": 0.002,
+          "peak_allocated_gib": 4.957,
+          "peak_reserved_gib": 0.002
+        },
+        "train_wall_s": 502.24,
+        "mem_end": {
+          "allocated_gib": 7.324,
+          "reserved_gib": 4.582,
+          "peak_allocated_gib": 16.012,
+          "peak_reserved_gib": 4.582
+        },
+        "export": {
+          "full_lora_modules": 343,
+          "attn_lora_modules": 196,
+          "full_hf_target_modules": [
+            "down_proj",
+            "gate_proj",
+            "k_proj",
+            "o_proj",
+            "q_proj",
+            "up_proj",
+            "v_proj"
+          ],
+          "attn_hf_target_modules": [
+            "k_proj",
+            "o_proj",
+            "q_proj",
+            "v_proj"
+          ],
+          "full_bundle": {
+            "dir": "/models/flint-lora-ft/runs/flint_40b_qlora_int8_20261103T064327Z/peft_adapter",
+            "tensors": 686,
+            "bytes": 42729472
+          },
+          "attn_bundle": {
+            "dir": "/models/flint-lora-ft/runs/flint_40b_qlora_int8_20261103T064327Z/peft_adapter_attn",
+            "tensors": 392,
+            "bytes": 27295744
+          },
+          "canonical_serving_adapter": "/models/adapters/flint-40b-qlora-int8-r16",
+          "canonical_full_adapter": "/models/adapters/flint-40b-qlora-int8-r16-full",
+          "export_s": 5.49
+        }
+      },
+      "tpu_info_hbm": {
+        "hbm_file": "flint_40b_qlora_int8.hbm.log",
+        "tool": "tpu-info (libtpu runtime HBM usage, 4 chips on host 0, 2s interval)",
+        "num_timestamps": 204,
+        "resting_p10_gib": 7.33,
+        "median_gib": 10.09,
+        "p95_gib": 12.55,
+        "max_gib": 15.79
+      }
+    },
+    "flint_40b_qlora_nf4": {
+      "log_file": "flint_40b_qlora_nf4.node0.log",
+      "return_code": 0,
+      "total_steps_logged": 150,
+      "compile_step1_s": 31.31,
+      "compile_step2_s": 9.16,
+      "steady_min_step": 15,
+      "steady_num_steps": 136,
+      "steady_step_time_mean_s": 9.1854,
+      "steady_step_time_p50_s": 9.155,
+      "steady_step_time_min_s": 9.03,
+      "steady_tok_s_per_chip": 892.2,
+      "steady_slice_tok_s_16chips": 14274.8,
+      "steady_tflops_per_chip": 16.88,
+      "steady_active_mfu_pct": 3.68,
+      "steady_active_hfu_pct": 4.9,
+      "pytorch_peak_mem_gib": 4.58,
+      "loss_initial": 2.25758,
+      "loss_final": 0.87202,
+      "loss_last10_mean": 0.87256,
+      "loss_curve_checkpoints": {
+        "step_1": 2.25758,
+        "step_5": 1.17103,
+        "step_10": 1.10943,
+        "step_25": 1.01671,
+        "step_50": 1.03653,
+        "step_75": 0.93329,
+        "step_100": 0.91515,
+        "step_120": 0.93842,
+        "step_150": 0.87202
+      },
+      "run_stats": {
+        "config": "flint_40b_qlora_nf4",
+        "model": "RecursiveSI/flint",
+        "quant": "nf4",
+        "lora_rank": 16,
+        "lora_alpha": 32.0,
+        "lora_targets_tt": [
+          "wq",
+          "wkv",
+          "wo",
+          "w1",
+          "w2",
+          "w3"
+        ],
+        "world_size": 16,
+        "trainable_params": 21364736,
+        "total_params": 39806652192,
+        "hf_load": {
+          "loader": "direct_sharded_flint_safetensors",
+          "source_path": "/dev/shm/flint_hf",
+          "tensors_loaded": 779,
+          "bytes_read_this_rank": 4973160932,
+          "seconds": 4.89,
+          "skipped_keys": []
+        },
+        "checkpoint_load_s": 4.95,
+        "mem_after_load": {
+          "allocated_gib": 4.784,
+          "reserved_gib": 0.002,
+          "peak_allocated_gib": 4.784,
+          "peak_reserved_gib": 0.002
+        },
+        "nf4_linear_modules": 390,
+        "nf4_expert_modules": 47,
+        "nf4_linear_params": 1320681472,
+        "nf4_expert_params": 37849399296,
+        "nf4_total_quantized_params": 39170080768,
+        "nf4_block": 64,
+        "nf4_rel_fro_err_sample": 0.093349,
+        "nf4_fallback_modules": [],
+        "bits_per_quantized_param": 4.125,
+        "quantize_s": 3.12,
+        "mem_after_quant": {
+          "allocated_gib": 1.543,
+          "reserved_gib": 0.063,
+          "peak_allocated_gib": 9.338,
+          "peak_reserved_gib": 0.063
+        },
+        "train_wall_s": 1400.52,
+        "mem_end": {
+          "allocated_gib": 6.251,
+          "reserved_gib": 4.582,
+          "peak_allocated_gib": 65.937,
+          "peak_reserved_gib": 4.582
+        },
+        "export": {
+          "full_lora_modules": 343,
+          "attn_lora_modules": 196,
+          "full_hf_target_modules": [
+            "down_proj",
+            "gate_proj",
+            "k_proj",
+            "o_proj",
+            "q_proj",
+            "up_proj",
+            "v_proj"
+          ],
+          "attn_hf_target_modules": [
+            "k_proj",
+            "o_proj",
+            "q_proj",
+            "v_proj"
+          ],
+          "full_bundle": {
+            "dir": "/models/flint-lora-ft/runs/flint_40b_qlora_nf4_20261103T065229Z/peft_adapter",
+            "tensors": 686,
+            "bytes": 42729472
+          },
+          "attn_bundle": {
+            "dir": "/models/flint-lora-ft/runs/flint_40b_qlora_nf4_20261103T065229Z/peft_adapter_attn",
+            "tensors": 392,
+            "bytes": 27295744
+          },
+          "canonical_serving_adapter": "/models/adapters/flint-40b-qlora-nf4-r16",
+          "canonical_full_adapter": "/models/adapters/flint-40b-qlora-nf4-r16-full",
+          "export_s": 5.96
+        }
+      },
+      "tpu_info_hbm": {
+        "hbm_file": "flint_40b_qlora_nf4.hbm.log",
+        "tool": "tpu-info (libtpu runtime HBM usage, 4 chips on host 0, 2s interval)",
+        "num_timestamps": 563,
+        "resting_p10_gib": 7.38,
+        "median_gib": 29.09,
+        "p95_gib": 64.23,
+        "max_gib": 65.8
+      }
+    },
+    "flint_40b_lora_bf16_r64": {
+      "log_file": "flint_40b_lora_bf16_r64.node0.log",
+      "return_code": 0,
+      "total_steps_logged": 120,
+      "compile_step1_s": 35.53,
+      "compile_step2_s": 13.46,
+      "steady_min_step": 15,
+      "steady_num_steps": 106,
+      "steady_step_time_mean_s": 3.0307,
+      "steady_step_time_p50_s": 3.0,
+      "steady_step_time_min_s": 2.99,
+      "steady_tok_s_per_chip": 2710.1,
+      "steady_slice_tok_s_16chips": 43361.7,
+      "steady_tflops_per_chip": 52.32,
+      "steady_active_mfu_pct": 11.4,
+      "steady_active_hfu_pct": 15.2,
+      "pytorch_peak_mem_gib": 4.58,
+      "loss_initial": 2.13873,
+      "loss_final": 0.81424,
+      "loss_last10_mean": 0.81808,
+      "loss_curve_checkpoints": {
+        "step_1": 2.13873,
+        "step_5": 1.13827,
+        "step_10": 1.12535,
+        "step_25": 1.03079,
+        "step_50": 1.06122,
+        "step_75": 0.82299,
+        "step_100": 0.79686,
+        "step_120": 0.81424
+      },
+      "run_stats": {
+        "config": "flint_40b_lora_bf16_r64",
+        "model": "RecursiveSI/flint",
+        "quant": "bf16",
+        "lora_rank": 64,
+        "lora_alpha": 128.0,
+        "lora_targets_tt": [
+          "wq",
+          "wkv",
+          "wo",
+          "w1",
+          "w2",
+          "w3"
+        ],
+        "world_size": 16,
+        "trainable_params": 85458944,
+        "total_params": 39870746400,
+        "hf_load": {
+          "loader": "direct_sharded_flint_safetensors",
+          "source_path": "/dev/shm/flint_hf",
+          "tensors_loaded": 779,
+          "bytes_read_this_rank": 4973160932,
+          "seconds": 4.32,
+          "skipped_keys": []
+        },
+        "checkpoint_load_s": 4.38,
+        "mem_after_load": {
+          "allocated_gib": 4.8,
+          "reserved_gib": 0.002,
+          "peak_allocated_gib": 4.8,
+          "peak_reserved_gib": 0.002
+        },
+        "train_wall_s": 406.81,
+        "mem_end": {
+          "allocated_gib": 9.592,
+          "reserved_gib": 4.582,
+          "peak_allocated_gib": 18.383,
+          "peak_reserved_gib": 4.582
+        },
+        "export": {
+          "full_lora_modules": 343,
+          "attn_lora_modules": 196,
+          "full_hf_target_modules": [
+            "down_proj",
+            "gate_proj",
+            "k_proj",
+            "o_proj",
+            "q_proj",
+            "up_proj",
+            "v_proj"
+          ],
+          "attn_hf_target_modules": [
+            "k_proj",
+            "o_proj",
+            "q_proj",
+            "v_proj"
+          ],
+          "full_bundle": {
+            "dir": "/models/flint-lora-ft/runs/flint_40b_lora_bf16_r64_20261103T071630Z/peft_adapter",
+            "tensors": 686,
+            "bytes": 170917888
+          },
+          "attn_bundle": {
+            "dir": "/models/flint-lora-ft/runs/flint_40b_lora_bf16_r64_20261103T071630Z/peft_adapter_attn",
+            "tensors": 392,
+            "bytes": 109182976
+          },
+          "canonical_serving_adapter": "/models/adapters/flint-40b-lora-r64",
+          "canonical_full_adapter": "/models/adapters/flint-40b-lora-r64-full",
+          "export_s": 11.96
+        }
+      },
+      "tpu_info_hbm": {
+        "hbm_file": "flint_40b_lora_bf16_r64.hbm.log",
+        "tool": "tpu-info (libtpu runtime HBM usage, 4 chips on host 0, 2s interval)",
+        "num_timestamps": 169,
+        "resting_p10_gib": 9.57,
+        "median_gib": 12.38,
+        "p95_gib": 13.98,
+        "max_gib": 18.38
+      }
+    },
+    "flint_40b_lora_bf16_attn": {
+      "log_file": "flint_40b_lora_bf16_attn.node0.log",
+      "return_code": 0,
+      "total_steps_logged": 120,
+      "compile_step1_s": 21.91,
+      "compile_step2_s": 8.21,
+      "steady_min_step": 15,
+      "steady_num_steps": 106,
+      "steady_step_time_mean_s": 2.9183,
+      "steady_step_time_p50_s": 2.9,
+      "steady_step_time_min_s": 2.89,
+      "steady_tok_s_per_chip": 2811.7,
+      "steady_slice_tok_s_16chips": 44987.6,
+      "steady_tflops_per_chip": 53.07,
+      "steady_active_mfu_pct": 11.56,
+      "steady_active_hfu_pct": 15.42,
+      "pytorch_peak_mem_gib": 4.58,
+      "loss_initial": 2.13873,
+      "loss_final": 0.9698,
+      "loss_last10_mean": 0.96793,
+      "loss_curve_checkpoints": {
+        "step_1": 2.13873,
+        "step_5": 1.23587,
+        "step_10": 1.09088,
+        "step_25": 1.0118,
+        "step_50": 1.03015,
+        "step_75": 0.96733,
+        "step_100": 0.94739,
+        "step_120": 0.9698
+      },
+      "run_stats": {
+        "config": "flint_40b_lora_bf16_attn",
+        "model": "RecursiveSI/flint",
+        "quant": "bf16",
+        "lora_rank": 16,
+        "lora_alpha": 32.0,
+        "lora_targets_tt": [
+          "wq",
+          "wkv",
+          "wo"
+        ],
+        "world_size": 16,
+        "trainable_params": 13647872,
+        "total_params": 39798935328,
+        "hf_load": {
+          "loader": "direct_sharded_flint_safetensors",
+          "source_path": "/dev/shm/flint_hf",
+          "tensors_loaded": 779,
+          "bytes_read_this_rank": 4973160932,
+          "seconds": 4.52,
+          "skipped_keys": []
+        },
+        "checkpoint_load_s": 4.58,
+        "mem_after_load": {
+          "allocated_gib": 4.78,
+          "reserved_gib": 0.002,
+          "peak_allocated_gib": 4.78,
+          "peak_reserved_gib": 0.002
+        },
+        "train_wall_s": 375.07,
+        "mem_end": {
+          "allocated_gib": 9.488,
+          "reserved_gib": 4.582,
+          "peak_allocated_gib": 18.289,
+          "peak_reserved_gib": 4.582
+        },
+        "export": {
+          "full_lora_modules": 196,
+          "attn_lora_modules": 196,
+          "full_hf_target_modules": [
+            "k_proj",
+            "o_proj",
+            "q_proj",
+            "v_proj"
+          ],
+          "attn_hf_target_modules": [
+            "k_proj",
+            "o_proj",
+            "q_proj",
+            "v_proj"
+          ],
+          "full_bundle": {
+            "dir": "/models/flint-lora-ft/runs/flint_40b_lora_bf16_attn_20261103T072405Z/peft_adapter",
+            "tensors": 392,
+            "bytes": 27295744
+          },
+          "attn_bundle": {
+            "dir": "/models/flint-lora-ft/runs/flint_40b_lora_bf16_attn_20261103T072405Z/peft_adapter_attn",
+            "tensors": 392,
+            "bytes": 27295744
+          },
+          "canonical_serving_adapter": "/models/adapters/flint-40b-lora-attn-r16",
+          "canonical_full_adapter": "/models/adapters/flint-40b-lora-attn-r16-full",
+          "export_s": 4.7
+        }
+      },
+      "tpu_info_hbm": {
+        "hbm_file": "flint_40b_lora_bf16_attn.hbm.log",
+        "tool": "tpu-info (libtpu runtime HBM usage, 4 chips on host 0, 2s interval)",
+        "num_timestamps": 153,
+        "resting_p10_gib": 9.49,
+        "median_gib": 12.71,
+        "p95_gib": 14.19,
+        "max_gib": 18.29
+      }
+    }
+  }
+}

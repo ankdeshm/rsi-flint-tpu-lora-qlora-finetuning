@@ -1,0 +1,56 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: flint-opt-vllm-rqkr
+  namespace: default
+  labels:
+    app: flint-opt-vllm-rqkr
+spec:
+  backoffLimit: 0
+  template:
+    metadata:
+      labels:
+        app: flint-opt-vllm-rqkr
+      annotations:
+        gke-gcsfuse/volumes: "true"
+        gke-gcsfuse/cpu-limit: "0"
+        gke-gcsfuse/memory-limit: "0"
+        gke-gcsfuse/ephemeral-storage-limit: "0"
+        cluster-autoscaler.kubernetes.io/safe-to-evict: "false"
+    spec:
+      restartPolicy: Never
+      terminationGracePeriodSeconds: 10
+      serviceAccountName: default
+      nodeSelector:
+        cloud.google.com/gke-nodepool: tpu-v7x-8-pool
+        cloud.google.com/gke-tpu-accelerator: tpu7x
+        cloud.google.com/gke-tpu-topology: 2x2x2
+        kubernetes.io/hostname: tpu-v7x-worker-0
+      tolerations:
+      - {key: google.com/tpu, operator: Exists, effect: NoSchedule}
+      - {key: cloud.google.com/gke-queued, operator: Exists, effect: NoSchedule}
+      - {key: cloud.google.com/gke-spot, operator: Exists, effect: NoSchedule}
+      containers:
+      - name: vllm-tpu
+        image: us-central1-docker.pkg.dev/your-gcp-project-id/vllm/vllm-torchtpu-bench:v0.32.0
+        imagePullPolicy: IfNotPresent
+        securityContext:
+          privileged: true
+        command: ["bash", "-lc"]
+        args:
+        - |
+          set -euo pipefail
+          python3 -u /models/benchmark-results/flint_v7x_rqkr_opt/scripts/bench_flint_vllm_rqkr.py
+        env:
+        - {name: PJRT_DEVICE, value: "TPU"}
+        resources:
+          requests: {google.com/tpu: "4", cpu: "32", memory: 200Gi}
+          limits: {google.com/tpu: "4"}
+        volumeMounts:
+        - {name: models-gcs, mountPath: /models}
+        - {name: dshm, mountPath: /dev/shm}
+      volumes:
+      - name: models-gcs
+        persistentVolumeClaim: {claimName: tpu-models-gcs-pvc}
+      - name: dshm
+        emptyDir: {medium: Memory, sizeLimit: 256Gi}
