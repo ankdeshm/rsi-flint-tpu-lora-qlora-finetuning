@@ -138,13 +138,20 @@ def main() -> None:
         "flint_40b_qlora_nf4",
         "flint_40b_lora_bf16_r64",
         "flint_40b_lora_bf16_attn",
+        "flint_40b_lora_bf16_16k",
+        "flint_40b_qlora_int8_16k",
+        "flint_40b_lora_bf16_32k",
+        "flint_40b_qlora_int8_32k",
+        "flint_40b_lora_bf16_64k",
+        "flint_40b_qlora_int8_64k",
     ]
     summary_runs: dict[str, Any] = {}
     for rname in run_names:
         log_p = logs_dir / f"{rname}.node0.log"
         if not log_p.exists():
             continue
-        parsed = parse_node0_log(log_p, steady_min_step=15)
+        min_st = 10 if rname.endswith(("_16k", "_32k", "_64k")) else 15
+        parsed = parse_node0_log(log_p, steady_min_step=min_st)
         # Match latest run_stats.json for this exact run_name (timestamp starts with _202)
         cand_dirs = sorted(runs_dir.glob(f"{rname}_202*"))
         if cand_dirs:

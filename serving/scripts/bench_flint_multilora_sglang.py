@@ -345,8 +345,7 @@ def launch_multilora_phase(
         "0.10",
         "--wait-timeout",
         "1800",
-        "--extra-args",
-        extra_args,
+        f"--extra-args={extra_args}",
     ]
     if disable_compile:
         cmd.append("--disable-torch-compile")

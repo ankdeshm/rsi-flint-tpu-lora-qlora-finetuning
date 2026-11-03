@@ -33,6 +33,20 @@ All five `4K` runs execute on **`16` TPU `v5p` chips** (`4` hosts × `4` chips, 
 3. **`4×` Rank Scaling (`r=16 -> r=64`) Is Nearly Free (`-0.17%` tok/s) and Cuts Loss by `-0.050`:** Increasing LoRA rank `4×` (`21.36M -> 85.46M` trainable params) adds only `0.01 s` per step (`2.990 -> 3.000 s`) and `0.05 GiB` HBM while improving `120`-step loss from `0.9293` (`r=16` @ step `120`) to **`0.8142` (`-0.115` at equal step budget)**. Conversely, adapting dense + shared-expert MLPs alongside attention (`flint_40b_lora_bf16` vs `flint_40b_lora_bf16_attn`) improves `120`-step SFT loss from `0.9698` to `0.9293` at a modest `3.4%` throughput cost.
 4. **Dual Hugging Face `PEFT` Export (`4.3–4.9 s` Cold Sharded Load, `4.7–12.0 s` Export):** Every run loads `79.6 GB` of `RecursiveSI/flint` safetensors in **`4.3–4.9 s`** by slicing only each rank's local `DTensor` shard (`4.97 GB`/rank, `16` local experts/layer) and exports two ready-to-serve Hugging Face `PEFT` bundles: `peft_adapter` (`343` modules: attention + dense MLP + shared-expert MLP, [`adapter_config_full.json`](./finetuning/results/adapter_config_full.json)) and `peft_adapter_attn` (`196` attention modules across all `49` layers for universal `SGLang-TorchTPU` / `vLLM-TorchTPU` multi-LoRA serving, [`adapter_config_attn.json`](./finetuning/results/adapter_config_attn.json)).
 
+---
+
+## 2. Long-Context LoRA & `INT8` QLoRA Scaling (`16K` -> `64K`, `TPU v5p-16`)
+
+Long-context recipes enable `FusedLossLinearWrapper` + `PallasCrossEntropyLoss` (`FLINT_LORA_PALLAS_CE=1`), deferring the `[seq_len, 150144]` vocabulary projection into a tiled Pallas kernel so the multi-tens-of-GiB `FP32` logits tensor is never materialized in HBM, combined with `Splash` causal/sliding-window sink attention and `Pallas` `256`-expert grouped GEMMs (`tile_m=256`).
+
+| Recipe | Context (`Global Tok/Step`) | Steady Step (`p50`) | Throughput / Chip (`16`-Chip Slice) | Resting Shard HBM | PyTorch Peak HBM | `tpu-info` HBM (`p50 / max`) | Loss (`Step 1 -> Final`) |
+|---|---|---:|---:|---:|---:|---:|---:|
+| **`flint_40b_lora_bf16_16k`** *(`BF16` LoRA (`r=16`))* | `16K` (`16,384`) (`262,144`) | `5.040 s` | **`3,251.1`** (`52,018.1` tok/s) | `5.236 GiB` | `15.734 GiB` | `11.95 / 15.70 GiB` | `2.1337 -> 0.9506` |
+| **`flint_40b_qlora_int8_16k`** *(`INT8` QLoRA (`r=16`))* | `16K` (`16,384`) (`262,144`) | `5.190 s` | **`3,157.5`** (`50,520.8` tok/s) | `3.032 GiB` | `14.015 GiB` | `9.51 / 13.83 GiB` | `2.1294 -> 0.9505` |
+| **`flint_40b_lora_bf16_32k`** *(`BF16` LoRA (`r=16`))* | `32K` (`32,768`) (`524,288`) | `7.390 s` | **`4,433.8`** (`70,941.4` tok/s) | `5.807 GiB` | `25.445 GiB` | `18.11 / 25.06 GiB` | `2.1239 -> 0.9553` |
+| **`flint_40b_qlora_int8_32k`** *(`INT8` QLoRA (`r=16`))* | `32K` (`32,768`) (`524,288`) | `7.570 s` | **`4,330.0`** (`69,280.0` tok/s) | `3.603 GiB` | `21.729 GiB` | `14.34 / 21.04 GiB` | `2.1210 -> 0.9548` |
+| **`flint_40b_lora_bf16_64k`** *(`BF16` LoRA (`r=16`))* | `64K` (`65,536`) (`1,048,576`) | `12.130 s` | **`5,402.5`** (`86,440.4` tok/s) | `6.931 GiB` | `44.175 GiB` | `29.61 / 43.40 GiB` | `2.1172 -> 0.9539` |
+| **`flint_40b_qlora_int8_64k`** *(`INT8` QLoRA (`r=16`))* | `64K` (`65,536`) (`1,048,576`) | `12.370 s` | **`5,297.8`** (`84,765.0` tok/s) | `4.727 GiB` | `41.820 GiB` | `27.26 / 41.06 GiB` | `2.1144 -> 0.9535` |
 
 
 ---
