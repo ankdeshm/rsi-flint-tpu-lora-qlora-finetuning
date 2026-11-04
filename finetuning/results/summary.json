@@ -36,6 +36,8 @@
         "step_1": 2.13873,
         "step_5": 1.12208,
         "step_10": 1.08754,
+        "step_15": 1.05583,
+        "step_20": 1.02746,
         "step_25": 1.00362,
         "step_50": 1.02626,
         "step_75": 0.92488,
@@ -149,6 +151,8 @@
         "step_1": 2.134,
         "step_5": 1.12344,
         "step_10": 1.08829,
+        "step_15": 1.05632,
+        "step_20": 1.02751,
         "step_25": 1.00358,
         "step_50": 1.02675,
         "step_75": 0.92481,
@@ -276,6 +280,8 @@
         "step_1": 2.25758,
         "step_5": 1.17103,
         "step_10": 1.10943,
+        "step_15": 1.0675,
+        "step_20": 1.03985,
         "step_25": 1.01671,
         "step_50": 1.03653,
         "step_75": 0.93329,
@@ -405,6 +411,8 @@
         "step_1": 2.13873,
         "step_5": 1.13827,
         "step_10": 1.12535,
+        "step_15": 1.08838,
+        "step_20": 1.04875,
         "step_25": 1.03079,
         "step_50": 1.06122,
         "step_75": 0.82299,
@@ -517,6 +525,8 @@
         "step_1": 2.13873,
         "step_5": 1.23587,
         "step_10": 1.09088,
+        "step_15": 1.0626,
+        "step_20": 1.03334,
         "step_25": 1.0118,
         "step_50": 1.03015,
         "step_75": 0.96733,
@@ -623,6 +633,8 @@
         "step_1": 2.13372,
         "step_5": 1.12516,
         "step_10": 1.04998,
+        "step_15": 1.02651,
+        "step_20": 1.01812,
         "step_25": 1.02546
       },
       "run_stats": {
@@ -734,6 +746,8 @@
         "step_1": 2.12942,
         "step_5": 1.12634,
         "step_10": 1.04936,
+        "step_15": 1.02651,
+        "step_20": 1.01818,
         "step_25": 1.02492
       },
       "run_stats": {
@@ -859,6 +873,8 @@
         "step_1": 2.12395,
         "step_5": 1.10729,
         "step_10": 1.04949,
+        "step_15": 1.02539,
+        "step_20": 0.99386,
         "step_25": 0.98561
       },
       "run_stats": {
@@ -970,6 +986,8 @@
         "step_1": 2.12104,
         "step_5": 1.1065,
         "step_10": 1.04849,
+        "step_15": 1.02579,
+        "step_20": 0.99297,
         "step_25": 0.98533
       },
       "run_stats": {
@@ -1095,6 +1113,8 @@
         "step_1": 2.11722,
         "step_5": 1.10973,
         "step_10": 1.03852,
+        "step_15": 1.00358,
+        "step_20": 0.97891,
         "step_25": 0.96222
       },
       "run_stats": {
@@ -1206,6 +1226,8 @@
         "step_1": 2.11443,
         "step_5": 1.11391,
         "step_10": 1.03495,
+        "step_15": 1.00309,
+        "step_20": 0.97838,
         "step_25": 0.96185
       },
       "run_stats": {
@@ -1305,6 +1327,109 @@
         "median_gib": 27.26,
         "p95_gib": 37.56,
         "max_gib": 41.06
+      }
+    },
+    "flint_40b_lora_bf16_128k": {
+      "log_file": "flint_40b_lora_bf16_128k.node0.log",
+      "return_code": 0,
+      "total_steps_logged": 20,
+      "compile_step1_s": 298.11,
+      "compile_step2_s": 45.26,
+      "steady_min_step": 5,
+      "steady_num_steps": 16,
+      "steady_step_time_mean_s": 45.235,
+      "steady_step_time_p50_s": 45.235,
+      "steady_step_time_min_s": 45.17,
+      "steady_tok_s_per_chip": 2897.6,
+      "steady_slice_tok_s_16chips": 46361.0,
+      "steady_tflops_per_chip": 308.0,
+      "steady_active_mfu_pct": 67.1,
+      "steady_active_hfu_pct": 89.47,
+      "pytorch_peak_mem_gib": 16.0,
+      "loss_initial": 2.10874,
+      "loss_final": 0.99005,
+      "loss_last10_mean": 1.00115,
+      "loss_curve_checkpoints": {
+        "step_1": 2.10874,
+        "step_5": 1.12503,
+        "step_10": 1.03645,
+        "step_15": 0.99541,
+        "step_20": 0.99005
+      },
+      "run_stats": {
+        "config": "flint_40b_lora_bf16_128k",
+        "model": "RecursiveSI/flint",
+        "quant": "bf16",
+        "lora_rank": 16,
+        "lora_alpha": 32.0,
+        "lora_targets_tt": [
+          "wq",
+          "wkv",
+          "wo",
+          "w1",
+          "w2",
+          "w3"
+        ],
+        "world_size": 16,
+        "seq_len": 131072,
+        "seqs_per_rank": 1,
+        "pallas_fused_ce": true,
+        "trainable_params": 328859648,
+        "total_params": 39806652192,
+        "hf_load": {
+          "loader": "direct_sharded_flint_safetensors",
+          "source_path": "/models/models/RecursiveSI/flint",
+          "tensors_loaded": 779,
+          "bytes_read_this_rank": 4973160932,
+          "seconds": 127.66,
+          "skipped_keys": []
+        },
+        "checkpoint_load_s": 127.75,
+        "mem_after_load": {
+          "allocated_gib": 9.244,
+          "reserved_gib": 0.188,
+          "peak_allocated_gib": 9.244,
+          "peak_reserved_gib": 0.188
+        },
+        "train_wall_s": 1156.19,
+        "mem_end": {
+          "allocated_gib": 25.473,
+          "reserved_gib": 16.005,
+          "peak_allocated_gib": 81.242,
+          "peak_reserved_gib": 16.005
+        },
+        "export": {
+          "full_lora_modules": 343,
+          "attn_lora_modules": 196,
+          "full_hf_target_modules": [
+            "down_proj",
+            "gate_proj",
+            "k_proj",
+            "o_proj",
+            "q_proj",
+            "up_proj",
+            "v_proj"
+          ],
+          "attn_hf_target_modules": [
+            "k_proj",
+            "o_proj",
+            "q_proj",
+            "v_proj"
+          ],
+          "full_bundle": {
+            "dir": "/models/flint-lora-ft/runs/flint_40b_lora_bf16_128k_20261104T021931Z/peft_adapter",
+            "tensors": 686,
+            "bytes": 42729472
+          },
+          "attn_bundle": {
+            "dir": "/models/flint-lora-ft/runs/flint_40b_lora_bf16_128k_20261104T021931Z/peft_adapter_attn",
+            "tensors": 392,
+            "bytes": 27295744
+          },
+          "canonical_serving_adapter": "/models/adapters/flint-40b-lora-128k",
+          "canonical_full_adapter": "/models/adapters/flint-40b-lora-128k-full",
+          "export_s": 5.89
+        }
       }
     }
   }

@@ -74,6 +74,9 @@ __all__ = [
     "flint_40b_qlora_int8_32k",
     "flint_40b_lora_bf16_64k",
     "flint_40b_qlora_int8_64k",
+    "flint_40b_lora_bf16_128k",
+    "flint_40b_qlora_int8_128k",
+    "flint_40b_qlora_nf4_128k",
     "flint_debug_lora_bf16",
     "flint_debug_qlora_int8",
     "flint_debug_qlora_nf4",
@@ -422,13 +425,16 @@ _NF4_CLS_CACHE: dict[type, type] = {}
 _NF4_EXP_CLS_CACHE: dict[type, type] = {}
 
 
+_NF4_LUT_CACHE: dict[tuple[torch.device, torch.dtype], torch.Tensor] = {}
+
+
 def _nf4_decode(idx: torch.Tensor, dtype: torch.dtype) -> torch.Tensor:
-    i = idx.to(torch.int32)
-    bits = [(i & (1 << k)) != 0 for k in range(4)]
-    level = [torch.where(bits[0], NF4_CODE[2 * j + 1], NF4_CODE[2 * j]) for j in range(8)]
-    level = [torch.where(bits[1], level[2 * j + 1], level[2 * j]) for j in range(4)]
-    level = [torch.where(bits[2], level[2 * j + 1], level[2 * j]) for j in range(2)]
-    return torch.where(bits[3], level[1], level[0]).to(dtype)
+    key = (idx.device, dtype)
+    lut = _NF4_LUT_CACHE.get(key)
+    if lut is None:
+        lut = torch.tensor(NF4_CODE, dtype=dtype, device=idx.device)
+        _NF4_LUT_CACHE[key] = lut
+    return lut[idx.to(torch.int32)]
 
 
 def _nf4_linear_forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -437,8 +443,8 @@ def _nf4_linear_forward(self, x: torch.Tensor) -> torch.Tensor:
     nb = in_f // NF4_BLOCK
     packed, acode = st[:, : in_f // 2], st[:, in_f // 2 :]
     idx = torch.stack([packed & 0x0F, packed >> 4], dim=-1).reshape(out_f, in_f)
-    absmax = (acode.to(torch.float32) * (1.0 / 255.0)) * self.weight_rowmax.to(torch.float32)[:, None]
-    w = (_nf4_decode(idx, torch.bfloat16).reshape(out_f, nb, NF4_BLOCK) * absmax.to(torch.bfloat16)[..., None]).reshape(
+    absmax = (acode.to(torch.bfloat16) * (1.0 / 255.0)) * self.weight_rowmax.to(torch.bfloat16)[:, None]
+    w = (_nf4_decode(idx, torch.bfloat16).reshape(out_f, nb, NF4_BLOCK) * absmax[..., None]).reshape(
         out_f, in_f
     )
     y = F.linear(x, w.to(x.dtype))
@@ -455,7 +461,7 @@ def _nf4_decode_3d(st: torch.Tensor, rowmax: torch.Tensor, in_f: int) -> torch.T
     nb = in_f // NF4_BLOCK
     packed, acode = st[..., : in_f // 2], st[..., in_f // 2 :]
     idx = torch.stack([packed & 0x0F, packed >> 4], dim=-1).reshape(e_dim, out_f, in_f)
-    absmax = (acode.to(torch.float32) * (1.0 / 255.0)).to(torch.bfloat16) * rowmax.unsqueeze(-1)
+    absmax = (acode.to(torch.bfloat16) * (1.0 / 255.0)) * rowmax.to(torch.bfloat16).unsqueeze(-1)
     return (_nf4_decode(idx, torch.bfloat16).reshape(e_dim, out_f, nb, NF4_BLOCK) * absmax.unsqueeze(-1)).reshape(
         e_dim, out_f, in_f
     )
@@ -934,12 +940,14 @@ def _is_not_none(sample: Any) -> bool:
     return sample is not None
 
 
-def sft_dataloader(path: str | None = None, seed: int = 42) -> GrainDataLoader.Config:
+def sft_dataloader(path: str | None = None, seed: int = 42, repeat: int = 1) -> GrainDataLoader.Config:
+    data_file = path or os.environ.get("LORA_FT_DATA", DEFAULT_DATA)
+    data_files = [data_file] * repeat if repeat > 1 else data_file
     ds = SingleDatasetConfig(
         source=HuggingFaceRandomAccessSource.Config(
             path="json",
             split="train",
-            load_dataset_kwargs={"data_files": path or os.environ.get("LORA_FT_DATA", DEFAULT_DATA)},
+            load_dataset_kwargs={"data_files": data_files},
         ),
         processor=ChatProcessor.Config(messages_fn=chat_messages),
         post_filters=(_is_not_none,),
@@ -1037,7 +1045,7 @@ def _base_flint_config(
             mixed_precision_param="bfloat16",
             mixed_precision_reduce="float32",
         ),
-        dataloader=sft_dataloader() if real_hf else _c4_test_loader(),
+        dataloader=sft_dataloader(repeat=(8 if seq_len >= 65536 else 1)) if real_hf else _c4_test_loader(),
         parallelism=ParallelismConfig(
             use_simple_fsdp=True,
             data_parallel_shard_degree=-1,
@@ -1094,7 +1102,7 @@ def flint_40b_lora_bf16_attn() -> TPUTrainerConfig:
 
 
 def flint_40b_lora_bf16_16k() -> TPUTrainerConfig:
-    return _base_flint_config(name="flint_40b_lora_bf16_16k", quant=None, seq_len=16384, seqs_per_rank=1, steps=40)
+    return _base_flint_config(name="flint_40b_lora_bf16_16k", quant="bf16" if False else None, seq_len=16384, seqs_per_rank=1, steps=40)
 
 
 def flint_40b_qlora_int8_16k() -> TPUTrainerConfig:
@@ -1115,6 +1123,18 @@ def flint_40b_lora_bf16_64k() -> TPUTrainerConfig:
 
 def flint_40b_qlora_int8_64k() -> TPUTrainerConfig:
     return _base_flint_config(name="flint_40b_qlora_int8_64k", quant="int8", seq_len=65536, seqs_per_rank=1, steps=30)
+
+
+def flint_40b_lora_bf16_128k() -> TPUTrainerConfig:
+    return _base_flint_config(name="flint_40b_lora_bf16_128k", quant=None, seq_len=131072, seqs_per_rank=1, steps=20)
+
+
+def flint_40b_qlora_int8_128k() -> TPUTrainerConfig:
+    return _base_flint_config(name="flint_40b_qlora_int8_128k", quant="int8", seq_len=131072, seqs_per_rank=1, steps=20)
+
+
+def flint_40b_qlora_nf4_128k() -> TPUTrainerConfig:
+    return _base_flint_config(name="flint_40b_qlora_nf4_128k", quant="nf4", seq_len=131072, seqs_per_rank=1, steps=20)
 
 
 def flint_debug_lora_bf16() -> TPUTrainerConfig:

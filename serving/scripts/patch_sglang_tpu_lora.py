@@ -100,7 +100,7 @@ def _tpu_torch_native_init(self, max_loras_per_batch: int, device: torch.device,
     _ORIG_TORCH_NATIVE_INIT(self, max_loras_per_batch, device, **kwargs)
     self._is_tpu_static = (device.type == "tpu")
     if self._is_tpu_static:
-        max_toks = 32768
+        max_toks = 147456
         self._tpu_max_tokens = max_toks
         self._tpu_weight_indices = torch.full((max_toks,), -1, dtype=torch.int32, device=device)
         self._tpu_scalings = torch.zeros((max_loras_per_batch,), dtype=torch.float32, device=device)

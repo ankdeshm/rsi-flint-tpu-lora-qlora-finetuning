@@ -50,7 +50,8 @@ spec:
         command: ["bash", "-c"]
         args:
         - |
-          mkdir -p /dev/shm/code /dev/shm/logs /dev/shm/flint_ckpt
+          ulimit -c 0 || true
+          mkdir -p /dev/shm/code /dev/shm/logs /dev/shm/flint_ckpt /dev/shm/hf_cache /dev/shm/xla_cache /dev/shm/tmp
           echo "[flint-lora-ft-${JOB_COMPLETION_INDEX:-0}] $(hostname) ready"
           sleep infinity
         env:
@@ -58,15 +59,21 @@ spec:
           valueFrom:
             secretKeyRef: {name: hf-token, key: HF_TOKEN}
         - {name: PJRT_DEVICE, value: "TPU"}
+        - {name: HF_HOME, value: "/dev/shm/hf_cache"}
+        - {name: XLA_CACHE_DIR, value: "/dev/shm/xla_cache"}
+        - {name: TMPDIR, value: "/dev/shm/tmp"}
         resources:
           requests: {google.com/tpu: "4", cpu: "64", memory: 300Gi}
           limits: {google.com/tpu: "4"}
         volumeMounts:
         - {name: models-gcs, mountPath: /models}
         - {name: dshm, mountPath: /dev/shm}
+        - {name: ramtmp, mountPath: /tmp}
       volumes:
       - name: dshm
-        emptyDir: {medium: Memory, sizeLimit: 220Gi}
+        emptyDir: {medium: Memory, sizeLimit: 240Gi}
+      - name: ramtmp
+        emptyDir: {medium: Memory, sizeLimit: 32Gi}
       - name: models-gcs
         persistentVolumeClaim:
           claimName: tpu-models-gcs-pvc

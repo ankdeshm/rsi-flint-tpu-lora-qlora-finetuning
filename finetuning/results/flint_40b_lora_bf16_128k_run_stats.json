@@ -1,0 +1,75 @@
+{
+  "config": "flint_40b_lora_bf16_128k",
+  "model": "RecursiveSI/flint",
+  "quant": "bf16",
+  "lora_rank": 16,
+  "lora_alpha": 32.0,
+  "lora_targets_tt": [
+    "wq",
+    "wkv",
+    "wo",
+    "w1",
+    "w2",
+    "w3"
+  ],
+  "world_size": 16,
+  "seq_len": 131072,
+  "seqs_per_rank": 1,
+  "pallas_fused_ce": true,
+  "trainable_params": 328859648,
+  "total_params": 39806652192,
+  "hf_load": {
+    "loader": "direct_sharded_flint_safetensors",
+    "source_path": "/models/models/RecursiveSI/flint",
+    "tensors_loaded": 779,
+    "bytes_read_this_rank": 4973160932,
+    "seconds": 127.66,
+    "skipped_keys": []
+  },
+  "checkpoint_load_s": 127.75,
+  "mem_after_load": {
+    "allocated_gib": 9.244,
+    "reserved_gib": 0.188,
+    "peak_allocated_gib": 9.244,
+    "peak_reserved_gib": 0.188
+  },
+  "train_wall_s": 1156.19,
+  "mem_end": {
+    "allocated_gib": 25.473,
+    "reserved_gib": 16.005,
+    "peak_allocated_gib": 81.242,
+    "peak_reserved_gib": 16.005
+  },
+  "export": {
+    "full_lora_modules": 343,
+    "attn_lora_modules": 196,
+    "full_hf_target_modules": [
+      "down_proj",
+      "gate_proj",
+      "k_proj",
+      "o_proj",
+      "q_proj",
+      "up_proj",
+      "v_proj"
+    ],
+    "attn_hf_target_modules": [
+      "k_proj",
+      "o_proj",
+      "q_proj",
+      "v_proj"
+    ],
+    "full_bundle": {
+      "dir": "/models/flint-lora-ft/runs/flint_40b_lora_bf16_128k_20261104T021931Z/peft_adapter",
+      "tensors": 686,
+      "bytes": 42729472
+    },
+    "attn_bundle": {
+      "dir": "/models/flint-lora-ft/runs/flint_40b_lora_bf16_128k_20261104T021931Z/peft_adapter_attn",
+      "tensors": 392,
+      "bytes": 27295744
+    },
+    "canonical_serving_adapter": "/models/adapters/flint-40b-lora-128k",
+    "canonical_full_adapter": "/models/adapters/flint-40b-lora-128k-full",
+    "export_s": 5.89
+  }
+}

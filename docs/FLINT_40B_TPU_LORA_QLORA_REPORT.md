@@ -1,10 +1,10 @@
-# Technical Report: `RecursiveSI/flint` (`39.8B` MoE) LoRA & QLoRA Fine-Tuning (`v5p-16`) + Multi-LoRA Serving (`v7x` & `v5p`)
+# Technical Report: `RecursiveSI/flint` (`39.8B` MoE) LoRA & QLoRA Fine-Tuning (`4K`–`128K` on `v5p-16`) + Multi-LoRA Serving (`v7x` & `v5p`)
 
 ## 1. Model Topology & Parameter Accounting
 
 `RecursiveSI/flint` is a sparse Mixture-of-Experts (`MoE`) autoregressive language model with **`39,785,287,456` base parameters** and **`~2.52B` active parameters per token**:
 - **`49` Transformer Decoder Layers** (`d_model = 2048`, `rms_norm_eps = 1e-6`, untied `tok_embeddings` + `lm_head` over `vocab_size = 150,144` = `614.99M` embedding/head params).
-- **Hybrid Sink Attention (`49` Layers):** `16` query heads (`head_dim = 128`), `2` KV heads (`8:1` GQA), QK-RMSNorm, and learned per-head softmax sink logits (`self_attn.softmax_offset` in HF / `attention.sinks` in TorchTitan). `35` layers apply sliding-window causal attention (`W = 513`) with RoPE; `14` layers (`layers 0, 1, 5, 9, ...`) apply full-sequence `NoPE` causal attention.
+- **Hybrid Sink Attention (`49` Layers):** `32` query heads (`head_dim = 128`, `q_proj` `4096 × 2048`), `4` KV heads (`8:1` GQA, `k_proj`/`v_proj` `512 × 2048`), QK-RMSNorm, and learned per-head softmax sink logits (`self_attn.softmax_offset` in HF / `attention.sinks` in TorchTitan). `35` layers apply sliding-window causal attention (`W = 513`) with RoPE; `14` layers (`layers 0, 1, 5, 9, ...`) apply full-sequence `NoPE` causal attention.
 - **Dense Prefix + `256`-Expert MoE Trunk:**
   - Layers `0..1`: Dense SwiGLU FFN (`w1, w2, w3` with `hidden_dim = 6144`).
   - Layers `2..48` (`47` MoE layers): Non-gated router (`[256, 2048]`) selecting `top_k = 6` sigmoid-scored experts out of `256` (`expert_hidden = 512`, `37,849,399,296` routed expert parameters = **`95.13%` of all model weights**) plus `1` always-active shared SwiGLU expert (`shared_hidden = 1024`).
@@ -13,10 +13,10 @@
 
 | TorchTitan Module FQN | HF `FlintForCausalLM` Module FQN | Layers | Tensor Shape (`out × in`) | `r=16` Trainable Params |
 |---|---|---:|---:|---:|
-| `layers.<L>.attention.qkv_linear.wq` | `model.layers.<L>.self_attn.q_proj` | `0..48` (`49`) | `2048 × 2048` | `3,211,264` |
-| `layers.<L>.attention.qkv_linear.wk` | `model.layers.<L>.self_attn.k_proj` | `0..48` (`49`) | `256 × 2048` | `1,806,336` |
-| `layers.<L>.attention.qkv_linear.wv` | `model.layers.<L>.self_attn.v_proj` | `0..48` (`49`) | `256 × 2048` | `1,806,336` |
-| `layers.<L>.attention.wo` | `model.layers.<L>.self_attn.o_proj` | `0..48` (`49`) | `2048 × 2048` | `3,211,264` |
+| `layers.<L>.attention.qkv_linear.wq` | `model.layers.<L>.self_attn.q_proj` | `0..48` (`49`) | `4096 × 2048` | `4,816,896` |
+| `layers.<L>.attention.qkv_linear.wk` | `model.layers.<L>.self_attn.k_proj` | `0..48` (`49`) | `512 × 2048` | `2,007,040` |
+| `layers.<L>.attention.qkv_linear.wv` | `model.layers.<L>.self_attn.v_proj` | `0..48` (`49`) | `512 × 2048` | `2,007,040` |
+| `layers.<L>.attention.wo` | `model.layers.<L>.self_attn.o_proj` | `0..48` (`49`) | `2048 × 4096` | `4,816,896` |
 | *(Note: TorchTitan `SeparateQKVLinear` attaches independent `wq, wk, wv` adapters via `wkv`)* | — | — | *(Attention subtotal across `196` projections)* | **`13,647,872`** |
 | `layers.<0..1>.feed_forward.{w1,w2,w3}` | `model.layers.<0..1>.mlp.{gate,down,up}_proj` | `0..1` (`2`) | `6144 × 2048` / `2048 × 6144` | `786,432` |
 | `layers.<2..48>.moe.shared_experts.{w1,w2,w3}` | `model.layers.<2..48>.mlp.shared_expert.{gate,down,up}_proj` | `2..48` (`47`) | `1024 × 2048` / `2048 × 1024` | `6,930,432` |
@@ -33,9 +33,9 @@ In [`flint_lora_tpu_recipes.py`](../finetuning/scripts/flint_lora_tpu_recipes.py
 1. **ICI-Compressed `SimpleFSDP` Sharding (`param_dtype=None`):**
    TorchTitan's `SimpleFSDP` wraps parameters with a `ReconstructParameter` parametrization that normally casts shards to `param_dtype=bfloat16` *before* the `AllGather`. Clearing `rc.param_dtype = None` on quantized modules forces XLA to `AllGather` raw `1`-byte `int8` shards (`39.17 GB` total across slice vs `78.34 GB` in `BF16`) or packed `uint8` `NF4` shards (`20.20 GB` total across slice).
 2. **`INT8` Channelwise Expert & Linear Quantization (`_quantize_int8_`):**
-   Each `[E_local, out, in]` expert shard is quantized per-(expert, output-row) (`scale = max(|W|) / 127.0` stored as `fp32` `[256, out]`), achieving **`0.015095` Frobenius relative error** in `5.04 s` across all `40B` weights. During forward and `FullAC` backward recomputation, the `int8` tensor feeds TPU `v5p`'s Pallas grouped-MM (`segment_matmul_pallas_2d` / `paired_segment_matmul_pallas_2d`, `tile_m=256`).
+   Each `[E_local, out, in]` expert shard is quantized per-(expert, output-row) (`scale = max(|W|) / 127.0` stored as `bfloat16`/`fp32` `[256, out]`), achieving **`0.015095` Frobenius relative error** in `5.04 s` across all `40B` weights. During forward and `FullAC` backward recomputation, the `int8` tensor feeds TPU `v5p`'s Pallas grouped-MM (`segment_matmul_pallas_2d` / `paired_segment_matmul_pallas_2d`, `tile_m=256`).
 3. **`NF4` Block-`64` + `UINT8` Double-Quantized `TpuGroupedExperts` (`_quantize_nf4_`):**
-   Packs pairs of `4`-bit NormalFloat codebook indices (`[E, out, in/2]`) concatenated with `uint8` block `absmax` scales (`[E, out, in/64]`) into a single `FSDP`-sharded `uint8` `DTensor` (`4.125` bits/param, `0.09335` Frobenius relative error in `3.12 s`), shrinking per-chip resting weight allocation to **`1.543 GiB`**.
+   Packs pairs of `4`-bit NormalFloat codebook indices (`[E, out, in/2]`) concatenated with `uint8` block `absmax` scales (`[E, out, in/64]`) into a single `FSDP`-sharded `uint8` `DTensor` (`4.125` bits/param, `0.09335` Frobenius relative error in `3.12 s`), shrinking per-chip resting weight allocation to **`1.543 GiB`**. For `128K` runs, `_nf4_decode` uses a cached `16`-entry `BF16` LUT gather (`lut[idx.to(torch.int32)]`) instead of an `FP32` `torch.where` binary tree to avoid `FP32` temporary workspace expansion.
 
 ---
 
@@ -67,11 +67,16 @@ In [`flint_lora_tpu_recipes.py`](../finetuning/scripts/flint_lora_tpu_recipes.py
 
 ---
 
-## 4. Long-Context (`16K`–`64K`) Fused Pallas Cross-Entropy Architecture
+## 4. Long-Context & Ultra-Long-Context (`16K`–`128K`) Fused Pallas Cross-Entropy Architecture
 
-At `seq_len = 65,536` (`vocab_size = 150,144`), materializing a standard `FP32` `[1, 65536, 150144]` logits tensor plus its backward gradient requires **`2 × 39.36 GB = 78.72 GB` (`73.3 GiB`) per chip**—which alone nearly exhausts `95 GiB` HBM before weights or MoE activations!
+At `seq_len = 65,536` (`64K`) and **`seq_len = 131,072` (`128K`)** (`vocab_size = 150,144`), materializing a standard `FP32` `[1, S, 150144]` logits tensor plus its backward gradient would require **`78.72 GB` (`73.3 GiB`) at `64K`** and **`157.43 GB` (`146.6 GiB`) per chip at `128K`**—exceeding TPU `v5p`'s entire `95 GiB` HBM before weights or MoE activations are even allocated!
 
-For all `seq_len >= 16,384` recipes (`flint_40b_{lora_bf16,qlora_int8}_{16k,32k,64k}`), [`flint_lora_tpu_recipes.py`](../finetuning/scripts/flint_lora_tpu_recipes.py) replaces `lm_head` with `derive(cfg.model_spec.model.lm_head, FusedLossLinearWrapper.Config)` paired with `PallasCrossEntropyLoss.Config()`. `lm_head` returns `(hidden_states, weight.T)` without projecting to vocabulary space, and `PallasCrossEntropyLoss` computes tiled projection + log-softmax + cross-entropy + backward gradients inside TPU VMEM—eliminating the multi-tens-of-GiB logits allocation completely and increasing `16K` per-chip throughput over `4K`!
+For all `seq_len >= 16,384` recipes (`flint_40b_{lora_bf16,qlora_int8}_{16k,32k,64k}` and `flint_40b_{lora_bf16,qlora_int8,qlora_nf4}_128k`), [`flint_lora_tpu_recipes.py`](../finetuning/scripts/flint_lora_tpu_recipes.py) replaces `lm_head` with `derive(cfg.model_spec.model.lm_head, FusedLossLinearWrapper.Config)` paired with `PallasCrossEntropyLoss.Config()`:
+1. **Zero-Logits VMEM Tiling (`b_block=1024, h_block=512, v_block=2048`):** `lm_head` returns `(hidden_states, weight.T)` without projecting to vocabulary space, and `PallasCrossEntropyLoss` computes tiled projection + online log-softmax + cross-entropy + backward gradients inside TPU VMEM (`131,072 % 1024 == 0`). *(Note: wrapping `lm_head` with `FusedLossLinearWrapper` keeps `lm_head.weight` (`307.49M` params) active inside the fused loss graph alongside the `21.36M` LoRA adapter parameters, while `export_flint_peft_adapters` cleanly exports only the `686` full / `392` attention LoRA adapter tensors.)*
+2. **Measured `128K` (`seq_len = 131,072`) Scaling on `TPU v5p-16` ([`flint_40b_lora_bf16_128k_run_stats.json`](../finetuning/results/flint_40b_lora_bf16_128k_run_stats.json)):**
+   - **Global Tokens / Step:** `2,097,152` tokens/step (`16` chips × `131,072` tokens/chip, zero gradient accumulation, zero context parallelism).
+   - **Steady Step Latency & Throughput:** **`45.235 s` (`p50`)** across steps `5..20` (`45.17–45.30 s` tight range after `298.11 s` step-`1` PJRT compilation), achieving **`2,897.6 tok/s/chip` (`46,361.0 tok/s` slice-wide)**—`+6.7%` higher token throughput than `4K` (`2,714.8 tok/s/chip`) because `35` of `49` attention layers use `W=513` sliding-window Splash attention (`O(S · W)`), confining `O(S^2)` quadratic attention to only `14` `NoPE` full-attention layers.
+   - **Peak HBM & Convergence:** **`81.242 GiB / 95.0 GiB` `torch_tpu` peak allocated (`85.5%` HBM utilization, `13.76 GiB` headroom)**, with SFT loss dropping monotonically from **`2.10874` (step `1`) -> `1.12503` (step `5`) -> `1.03645` (step `10`) -> `0.99541` (step `15`) -> `0.99005` (step `20`, min `0.98568` at step `19`)** across `41.94M` training tokens.
 
 ---
 
@@ -80,6 +85,6 @@ For all `seq_len >= 16,384` recipes (`flint_40b_{lora_bf16,qlora_int8}_{16k,32k,
 Out of the box, `sglang-torchtpu` disables LoRA on `FlintForCausalLM` across five places in the stack. [`serving/scripts/patch_sglang_tpu_lora.py`](../serving/scripts/patch_sglang_tpu_lora.py) patches all five cleanly:
 1. **Model Capabilities (`flint.py`):** Sets `supports_lora = True` and declares `embedding_modules` / `embedding_padding_modules` on `FlintForCausalLM`.
 2. **Stacked QKV Mapping:** Registers `qkv_proj -> [q_proj, k_proj, v_proj]` sub-module slicing so separate Hugging Face `PEFT` `q_proj, k_proj, v_proj` adapters fuse cleanly into `SGLang`'s `QKVParallelLinear` under any `TP` degree.
-3. **`Block-FP8` Base Weight Compatibility (`lora_manager.py` / `layers.py`):** Allows `BF16` LoRA `A/B` Punica Pallas kernels to run atop `Block-FP8` (`[128, 128]` quantized) `FlintForCausalLM` base weights ("QLoRA-style serving": `FP8` base + `FP8` KV cache + `BF16` multi-tenant adapters).
-4. **TPU Graph Capture Bucket Alignment:** Preserves `LoRABatchInfo` metadata across `torch_tpu` `EXTEND` and `DECODE` XLA graph captures so multi-tenant batches mixing `base + lora_1 + lora_2 + ...` execute without dynamic recompilation.
-5. **Dynamic Adapter Control Plane:** Verifies concurrent routing across adapters trained by `BF16 LoRA`, `INT8 QLoRA`, `NF4 QLoRA`, and `attn-only LoRA` exported directly from our `v5p-16` runs.
+3. **`Block-FP8` Base Weight Compatibility (`lora_manager.py` / `layers.py`):** Allows `BF16` LoRA `A/B` Punica / `torch_native` kernels to run atop `Block-FP8` (`[128, 128]` quantized) `FlintForCausalLM` base weights ("QLoRA-style serving": `FP8` base + `FP8` KV cache + `BF16` multi-tenant adapters).
+4. **TPU Graph Capture Bucket Alignment (`max_toks = 147,456`):** Preserves static-shape `LoRABatchInfo` metadata across `torch_tpu` `EXTEND` and `DECODE` XLA graph captures up to `128K` (`131,072`) context so multi-tenant batches mixing `base + lora_1 + lora_2 + ...` execute without dynamic recompilation.
+5. **Dynamic Adapter Control Plane:** Verifies concurrent routing and live `/unload_lora_adapter` + `/load_lora_adapter` hot-swap across adapters trained by `BF16 LoRA`, `INT8 QLoRA`, `NF4 QLoRA`, and `attn-only LoRA` exported directly from our `v5p-16` runs.
